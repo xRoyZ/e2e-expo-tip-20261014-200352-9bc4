@@ -24,22 +24,13 @@ const NO_ERRORS: FieldErrors = {};
 
 const EMPTY_FIELDS: TipInput = { amount: '', tipPercent: '', partySize: '' };
 
+const PLACEHOLDER = '-';
+
 type DisplayValues = {
   tip: string;
   total: string;
   perPerson: string;
 };
-
-function toDisplayValues(result: TipResult): DisplayValues {
-  if (!result.ok) {
-    return { tip: NEUTRAL_HINT, total: NEUTRAL_HINT, perPerson: NEUTRAL_HINT };
-  }
-  return {
-    tip: formatCents(result.tipCents),
-    total: formatCents(result.totalCents),
-    perPerson: formatCents(result.perPersonCents),
-  };
-}
 
 type FieldProps = {
   label: string;
@@ -134,22 +125,53 @@ const RESULT_ROWS = [
   { testID: 'result-per-person', label: 'Pro Person', field: 'perPerson' },
 ] as const;
 
-function ResultsPanel({ values }: { values: DisplayValues }) {
+type ResultsPanelProps = {
+  result: TipResult;
+  hasTouched: boolean;
+};
+
+function ResultsPanel({ result, hasTouched }: ResultsPanelProps) {
+  const values: DisplayValues | null = result.ok
+    ? {
+        tip: formatCents(result.tipCents),
+        total: formatCents(result.totalCents),
+        perPerson: formatCents(result.perPersonCents),
+      }
+    : null;
+
+  const showPlaceholder = !hasTouched;
+  const showHint = hasTouched && !result.ok;
+
+  const valueFor = (field: keyof DisplayValues): string => {
+    if (showPlaceholder) {
+      return PLACEHOLDER;
+    }
+    return values ? values[field] : '';
+  };
+
   return (
     <View style={styles.results}>
+      {showHint ? (
+        <View testID="result-hint" style={styles.hintBox}>
+          <Text style={styles.hintText}>{NEUTRAL_HINT}</Text>
+        </View>
+      ) : null}
       {RESULT_ROWS.map((row, index) => (
         <Fragment key={row.testID}>
           {index > 0 ? <View style={styles.divider} /> : null}
           <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>{row.label}</Text>
+            <Text style={styles.resultLabel} numberOfLines={1}>
+              {row.label}
+            </Text>
             <Text
               testID={row.testID}
               style={[
                 styles.resultValue,
-                row.field === 'perPerson' ? styles.resultValueAccent : null,
+                showPlaceholder ? styles.resultPlaceholder : null,
+                values && row.field === 'perPerson' ? styles.resultValueAccent : null,
               ]}
             >
-              {values[row.field]}
+              {valueFor(row.field)}
             </Text>
           </View>
         </Fragment>
@@ -169,6 +191,7 @@ export default function TipCalculatorScreen() {
 
   const result = calculateTip(fields);
   const errors: FieldErrors = result.ok ? NO_ERRORS : result.errors;
+  const hasTouched = touched.amount || touched.tipPercent || touched.partySize;
 
   const errorFor = (field: FieldKey): string | null => {
     const code = errors[field];
@@ -196,7 +219,7 @@ export default function TipCalculatorScreen() {
     >
       <Text style={styles.heading}>Trinkgeld-Rechner</Text>
       <TipFields fields={fields} errorFor={errorFor} onChange={onChange} />
-      <ResultsPanel values={toDisplayValues(result)} />
+      <ResultsPanel result={result} hasTouched={hasTouched} />
     </View>
   );
 }
@@ -242,12 +265,28 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     fontSize: typography.sizeCaption,
+    marginTop: spacing.space0,
   },
   results: {
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
     paddingHorizontal: spacing.space3,
     paddingVertical: spacing.space1,
+  },
+  hintBox: {
+    alignItems: 'center',
+    backgroundColor: colors.errorSoft,
+    borderRadius: radii.md,
+    marginTop: spacing.space1,
+    marginBottom: spacing.space1,
+    padding: spacing.space3,
+  },
+  hintText: {
+    color: colors.error,
+    fontSize: typography.sizeBody,
+    fontWeight: typography.bodyWeight,
+    lineHeight: typography.sizeBody * typography.lineHeight,
+    textAlign: 'center',
   },
   resultRow: {
     alignItems: 'center',
@@ -257,14 +296,21 @@ const styles = StyleSheet.create({
   },
   resultLabel: {
     color: colors.muted,
-    fontSize: typography.sizeBody,
+    flexShrink: 1,
+    fontSize: typography.sizeLabel,
     fontWeight: typography.labelWeight,
   },
   resultValue: {
     color: colors.fg,
+    flexShrink: 0,
     fontVariant: ['tabular-nums'],
     fontSize: typography.sizeResult,
     fontWeight: typography.headingWeight,
+    marginLeft: spacing.space2,
+    textAlign: 'right',
+  },
+  resultPlaceholder: {
+    color: colors.muted,
   },
   resultValueAccent: {
     color: colors.accent,
@@ -274,5 +320,3 @@ const styles = StyleSheet.create({
     height: 1,
   },
 });
-
-export const tipCalculatorScreenStyles = styles;
