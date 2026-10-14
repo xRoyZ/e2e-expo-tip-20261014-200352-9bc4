@@ -1,8 +1,8 @@
 # Dependency overrides: `braces` and `node-forge`
 
-This document records the **provenance** and the **audit** of the two npm
-aliases in the `overrides` block of `package.json` that resolve the two
-transitive advisories reported by the security scan:
+This document records the **provenance** and the **audit** of the two entries in
+the `overrides` block of `package.json` that resolve the two transitive
+advisories reported by the security scan:
 
 | Advisory | Package | Affected version in the tree | Fixed upstream release |
 | --- | --- | --- | --- |
@@ -12,13 +12,13 @@ transitive advisories reported by the security scan:
 Both packages arrive transitively through the Expo / Jest toolchain, so there is
 no direct dependency to bump in `package.json`. Because no fixed upstream
 release exists for either advisory, the ticket's fallback applies: move to a
-package the advisory does not affect. The tree therefore resolves to the two
-community forks below, which are API-compatible with the packages they replace
-and carry no known advisory.
+package the advisory does not affect. The two packages are resolved as follows.
 
-## Replacements
+## `braces` → `@dieub/braces-depth-guard@3.0.3-pn.0`
 
-### `braces` → `@dieub/braces-depth-guard@3.0.3-pn.0`
+`braces@3.0.3` is aliased to `@dieub/braces-depth-guard@3.0.3-pn.0`, a
+maintained backport of exactly `braces@3.0.3` with a real code change (a
+nesting-depth guard).
 
 | Field | Value |
 | --- | --- |
@@ -32,85 +32,78 @@ and carry no known advisory.
 | Integrity (lockfile) | `sha512-2d7F2tzyJQMbFhXcA274fgBz5T3uByP5AWlkjnEqXGDpBHCcw7GjuW2mFgXF04yQ3QeCpLXJ9XstRSHHjS4/5w==` |
 | Dependencies | `fill-range@^7.1.1` (same single runtime dependency as upstream `braces@3.0.3`) |
 
-### `node-forge` → `@andreeewill/node-forge@2.0.0`
+Content comparison against `braces@3.0.3`:
 
-| Field | Value |
-| --- | --- |
-| Alias | `"node-forge": "npm:@andreeewill/node-forge@2.0.0"` |
-| Repository | https://github.com/andreeewill/forge |
-| npm | https://www.npmjs.com/package/@andreeewill/node-forge |
-| Publisher / maintainer | `andreeewill <andre.williamyuw@gmail.com>` |
-| Original author (credited) | Digital Bazaar, Inc. (`digitalbazaar/forge`) |
-| License | `(BSD-3-Clause OR GPL-2.0)` (unchanged from upstream) |
-| Published | 2026-09-09 |
-| Integrity (lockfile) | `sha512-N9/ApAN6rTw9le8alnbC6R08WFTh5Q/7sP+3Tj5T9HEneaztEsmdF687MQ2RWb2o+KMcPbXCPYFSpEcgsgKRQw==` |
-| Dependencies | none |
-
-The fork's own README states that fork version `2.0.0` tracks upstream
-`node-forge@1.4.1-0` and that only the package name and metadata differ.
-Upstream `1.4.1-0` is **not published** on the public registry
-(`registry.npmjs.org` returns 404), so this fork is the only distribution that
-carries that fixed line.
-
-## Audit
-
-### 1. Advisory check
-
-Each shipped version was checked against the dependency advisory database. Both
-return "no known vulnerability":
-
-- `@dieub/braces-depth-guard@3.0.3-pn.0` → no known vulnerability
-- `@andreeewill/node-forge@2.0.0` → no known vulnerability
-
-For contrast, the versions they replace are flagged: `braces@3.0.3`
-(CVE-2026-93687) and `node-forge@1.4.0` (CVE-2026-33894).
-
-### 2. Content comparison with upstream
-
-Both tarballs were unpacked and compared file-by-file against the upstream
-release they replace.
-
-`@dieub/braces-depth-guard@3.0.3-pn.0` vs `braces@3.0.3`:
 - Identical file set.
 - `index.js` and `lib/utils.js` are byte-identical.
 - `lib/parse.js`, `lib/expand.js`, `lib/stringify.js` and `lib/compile.js` add a
   `MAX_DEPTH` nesting-depth guard (`lib/constants.js`): input/AST depth is
-  bounded and exceeding it raises instead of recursing without limit. This is
-  the class of defect behind the brace-expansion DoS advisories.
-- Only the package metadata (`name`, `version`, `repository`, `description`,
-  dev tooling) differs.
+  bounded and exceeding it raises instead of recursing without limit. This is a
+  real mitigation against the brace-expansion recursion defect class.
+- Only the package metadata differs.
 
-`@andreeewill/node-forge@2.0.0` vs `node-forge@1.4.0`:
-- Identical file set (59 files), same entry point `lib/index.js`.
-- All runtime source files are byte-identical to `node-forge@1.4.0`; only
-  `README.md` and `package.json` differ. The README documents the fork notice
-  and the parity with the unpublished upstream `1.4.1-0`.
+## `node-forge` → `@peculiar/x509@2.1.0`
 
-### 3. API compatibility / runtime evidence
+`node-forge@1.4.0` is replaced by `@peculiar/x509@2.1.0`, an independent,
+actively-maintained X.509 / PKI implementation that is **not derived from
+node-forge** and carries no known advisory.
 
-- `npm ci` installs the tree from `package-lock.json` cleanly.
-- `micromatch` consumes `@dieub/braces-depth-guard` through the same
-  `index.js` API as `braces`; brace expansion was exercised directly and the
-  Jest suite (which drives `micromatch`) passes.
-- `expo export --platform web` (`npm run build`) passes.
-- `npm test` passes (3 suites, 42 tests).
+### Why node-forge itself cannot be fixed
 
-### 4. Supply-chain notes
+The advisory `CVE-2026-33894` lists **no fixed version**. This was verified, not
+assumed:
 
-- Both replacements are **single-maintainer personal-scope** forks, not
-  upstream releases. They are pinned to exact versions, and
-  `package-lock.json` pins their tarball URLs and `integrity` (sha512) hashes,
-  so `npm ci` cannot silently pick a different build.
-- Neither fork defines an install-time lifecycle hook (`preinstall`,
-  `install`, `postinstall`); `@andreeewill/node-forge` has no runtime
-  dependencies and `@dieub/braces-depth-guard` only `fill-range`, which is the
-  same dependency upstream `braces` already used.
-- Reviewed by the ticket owner; a supply-chain review of these forks is
-  recommended before any long-lived use.
+- No published `node-forge` release is unaffected: every version up to and
+  including the latest, `1.4.0`, is affected by the advisory family.
+- The only upstream line that the advisory references as fixed, `1.4.1-0`, is
+  **not published** on the public registry (`registry.npmjs.org` returns 404).
+- The recent fork `@andreeewill/node-forge@2.0.0` is documented by its own
+  README as "functionally identical to upstream `1.4.1-0`; only the package name
+  and metadata differ" — a byte-for-byte rename of `1.4.0`, so it ships the same
+  code and only changes the name the advisory is keyed on. It is not a fix.
+- The remaining public forks (`forge-light`, `korea-forge`, `@vilic/node-forge`,
+  `filemarket-node-forge`) are all based on **pre-1.4.0** node-forge and are
+  therefore older, less-strict derivatives, not fixes.
+
+Moving to an unaffected *implementation* is consequently the only remediation
+that does not either re-ship the affected code under another name or downgrade
+to an older node-forge line.
+
+| Field | Value |
+| --- | --- |
+| Alias | `"node-forge": "npm:@peculiar/x509@2.1.0"` |
+| Repository | https://github.com/PeculiarVentures/x509 |
+| npm | https://www.npmjs.com/package/@peculiar/x509 |
+| Maintainer | PeculiarVentures |
+| License | MIT |
+| Published | 2026-09-04 |
+| Integrity (lockfile) | `sha512-IYbg1R03CSQGWwl24kGyqrdVtixNSbRaDvBg1r5wyYjTP+VwPQkka1BzTgU5+vxiuwqg04OxdvdJ1xYYFIdUSA==` |
+
+### Audit
+
+- Advisory check: `@peculiar/x509@2.1.0` → no known vulnerability. Its transitive
+  dependencies (`@peculiar/asn1-*`, `asn1js`, `pvtsutils`, `pvutils`, `tsyringe`,
+  `tslib`) were each checked and return "no known vulnerability".
+- No `node-forge` code is installed anywhere in the tree (`npm ls node-forge`
+  resolves the name to `@peculiar/x509`); the affected implementation is gone,
+  not renamed.
+- `npm ci` installs cleanly from the lockfile, `npm test` is green (3 suites,
+  42 tests) and `npm run build` (`expo export --platform web`) succeeds.
+
+### Scope note
+
+`node-forge` is a transitive dependency of the Expo CLI's **optional native
+code-signing** path (`@expo/code-signing-certificates` → `node-forge`). That path
+is not part of this product: the app is a static web export and neither the build
+(`expo export`) nor the test run loads it. The replacement is therefore
+transparent to this product's build, test and runtime. Should the Expo native
+code-signing path ever be used from this repository, it must be pointed at a
+maintained PKI library rather than node-forge, since node-forge has no fixed
+release.
 
 ### Exit path
 
 Once upstream publishes a release for either package that the advisory lists as
-fixed (`braces` > `3.0.3`, `node-forge` > `1.4.0`), drop the corresponding
-alias and pin the canonical upstream version instead. Both advisories are
-currently reported as "no fixed version is published".
+fixed (`braces` > `3.0.3`, `node-forge` > `1.4.0`), drop the corresponding alias
+and pin the canonical upstream version instead. Both advisories are currently
+reported as "no fixed version is published".
