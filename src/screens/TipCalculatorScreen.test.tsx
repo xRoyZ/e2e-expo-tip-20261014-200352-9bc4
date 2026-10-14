@@ -41,20 +41,25 @@ describe('TipCalculatorScreen', () => {
     expect(screen.getByTestId('result-per-person').props.children).toBe('55,00 €');
   });
 
-  it('keeps the start state neutral without field errors', async () => {
+  it('keeps the start state neutral without field errors or hint', async () => {
     const screen = await render(<TipCalculatorScreen />);
     expect(screen.queryByTestId('amount-input-error')).toBeNull();
     expect(screen.queryByTestId('tip-percent-input-error')).toBeNull();
     expect(screen.queryByTestId('party-size-input-error')).toBeNull();
+    expect(screen.queryByTestId('result-hint')).toBeNull();
+    expect(screen.getByTestId('result-tip').props.children).toBe('-');
+    expect(screen.getByTestId('result-total').props.children).toBe('-');
+    expect(screen.getByTestId('result-per-person').props.children).toBe('-');
   });
 
-  it('replaces the results with the hint and shows an error under an invalid touched field', async () => {
+  it('shows the hint once and empties the results for an invalid touched field', async () => {
     const screen = await render(<TipCalculatorScreen />);
     await fireEvent.changeText(screen.getByTestId('amount-input'), 'a');
 
-    expect(screen.getByTestId('result-tip').props.children).toBe('Bitte Eingaben prüfen');
-    expect(screen.getByTestId('result-total').props.children).toBe('Bitte Eingaben prüfen');
-    expect(screen.getByTestId('result-per-person').props.children).toBe('Bitte Eingaben prüfen');
+    expect(screen.getByTestId('result-hint')).toBeTruthy();
+    expect(screen.getByTestId('result-tip').props.children).toBeFalsy();
+    expect(screen.getByTestId('result-total').props.children).toBeFalsy();
+    expect(screen.getByTestId('result-per-person').props.children).toBeFalsy();
     expect(screen.getByTestId('amount-input-error')).toBeTruthy();
     expect(screen.queryByTestId('tip-percent-input-error')).toBeNull();
   });
