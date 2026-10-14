@@ -28,9 +28,12 @@
   "jest": {
     "preset": "jest-expo"
   },
+  "//overrides": "braces and node-forge are transitive dev/build-time packages with no fixed upstream release (CVE-2026-93687 / CVE-2026-33894). braces is aliased to an audited vendor backport; node-forge is replaced by the independent @peculiar/x509 implementation - provenance and audit in docs/dependency-overrides.md.",
   "overrides": {
     "uuid": "^11.1.1",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
+    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.0",
+    "node-forge": "npm:@peculiar/x509@2.1.0"
   },
   "private": true
 }
